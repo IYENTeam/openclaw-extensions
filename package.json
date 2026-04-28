@@ -2,7 +2,7 @@
   "name": "@iyen/openclaw-extensions",
   "version": "0.1.0",
   "private": true,
-  "description": "IYENTeam's OpenClaw plugin extensions monorepo (context engines, watchdogs, runtime add-ons).",
+  "description": "IYENTeam's OpenClaw extension monorepo. Each package is a self-contained OpenClaw plugin (context engines, watchdogs, runtime add-ons) registered via the standard `openclaw.extensions` entry.",
   "type": "module",
   "scripts": {
     "test": "pnpm -r run test"

@@ -1,22 +1,25 @@
 # @iyen/assei
 
-OpenClaw context-engine plugin. After every agent turn, asks an
-**independent verifier model** "is more work needed?" — if yes, auto-spawns
-a detached continuation of the same session so the agent keeps going
-without further user input.
+**An [OpenClaw](https://github.com/openclaw/openclaw) extension.** Assei is
+a `contextEngine`-slot plugin that hooks into OpenClaw's `afterTurn`
+lifecycle: after every agent turn it asks an **independent verifier model**
+"is more work needed?" — if yes, it auto-spawns a detached
+`openclaw agent --session-id <same>` so the agent keeps going on the same
+OpenClaw session without further user input.
 
 > **`assei.model` is required.** Assei is by design an *external* verifier:
 > it must be pinned to a model that is independent of whatever model is
-> driving the main agent. Without that pin the loop quietly devolves into
-> "ask yourself if you're done", which is exactly what Assei exists to
-> avoid. The plugin therefore refuses to run when no model is configured
-> and writes a clear `validator_failed` entry to the audit log instead of
-> guessing a fallback.
+> driving the main OpenClaw agent. Without that pin the loop quietly
+> devolves into "ask yourself if you're done", which is exactly what
+> Assei exists to avoid. The plugin therefore refuses to run when no
+> model is configured and writes a clear `validator_failed` entry to the
+> audit log instead of guessing a fallback.
 
-- Plugin id: **`assei`**
-- Slot: **`contextEngine`**
-- Verifier model: **must be pinned via `assei.model` or `OPENCLAW_ASSEI_MODEL`** — any model id that openclaw can already invoke (`openai/gpt-5-mini`, `apiclient/glm-5.1`, etc.).
-- Verdict transport: `runtime.subagent.run` — openclaw owns provider/auth/billing. No HTTP, no separate API key.
+- OpenClaw plugin id: **`assei`**
+- OpenClaw slot: **`contextEngine`**
+- OpenClaw hook used: **`afterTurn`** (no-op in `assemble`/`compact`/`ingest`)
+- OpenClaw runtime API used: **`PluginRuntime.subagent.{run, waitForRun, getSessionMessages, deleteSession}`**
+- Verifier model: **must be pinned via `assei.model` or `OPENCLAW_ASSEI_MODEL`** — any model id that OpenClaw can already invoke (`openai/gpt-5-mini`, `apiclient/glm-5.1`, etc.). OpenClaw owns provider/auth/billing; this plugin never speaks HTTP.
 - Side effects per turn: writes `<workspace>/.openclaw/assei.json` (dedup state) and `<workspace>/.openclaw/assei.log` (audit trail).
 
 ---
@@ -24,10 +27,11 @@ without further user input.
 ## Install (for agents)
 
 > The root [README](../../README.md) covers the install flow end-to-end
-> (intent check → pick a verifier model → patch `~/.openclaw/openclaw.json`).
-> The recipe below is the same thing condensed for direct package install.
+> (intent check → pick a verifier model → register the extension with
+> OpenClaw → patch `~/.openclaw/openclaw.json`). The recipe below is the
+> same thing condensed for direct package install.
 
-### 1. Link the plugin
+### 1. Register the extension with OpenClaw
 
 ```bash
 REPO=$HOME/.openclaw/extensions/openclaw-extensions
@@ -35,6 +39,10 @@ git clone https://github.com/IYENTeam/openclaw-extensions.git "$REPO" 2>/dev/nul
   || git -C "$REPO" pull --ff-only
 openclaw plugins install --link "$REPO/packages/assei"
 ```
+
+`openclaw plugins install --link` reads the package's `package.json` →
+`openclaw.extensions` entry and registers `index.mjs` as the plugin's
+entry module with the OpenClaw plugin loader.
 
 ### 2. Patch `~/.openclaw/openclaw.json`
 
@@ -118,40 +126,44 @@ Env equivalents: `OPENCLAW_ASSEI`, `OPENCLAW_ASSEI_MODEL`,
 
 ---
 
-## Runtime requirement
+## OpenClaw runtime requirement
 
-`PluginRuntime.subagent.*` is only exposed when the plugin runs inside an
-actual gateway request lifecycle:
+`PluginRuntime.subagent.*` is only exposed by OpenClaw when the plugin
+runs inside an actual gateway request lifecycle:
 
 - ✅ Works behind `openclaw gateway` (channels, `openclaw agent` without `--local`).
-- ❌ Disabled inside `openclaw agent --local` (embedded runner does not expose subagent). Assei detects this and silently no-ops the verifier instead of crashing the turn.
+- ❌ Disabled inside `openclaw agent --local` (the embedded OpenClaw runner does not expose `runtime.subagent`). Assei detects this and silently no-ops the verifier instead of crashing the turn.
+
+This is a property of OpenClaw, not Assei — any OpenClaw extension that
+needs `PluginRuntime.subagent` has the same constraint.
 
 ---
 
-## How it works
+## How it works (inside OpenClaw)
 
 ```
-OpenClaw afterTurn
+OpenClaw runtime: agent turn finishes
    │
+   │  ── OpenClaw fires the afterTurn hook on the bound contextEngine ──▶
    ▼
-assei plugin
+@iyen/assei plugin (this package)
    │  build params { sessionId, messages, turnId, runtimeContext }
    ▼
 maybeRunAssei()
-   │  open ephemeral verifier session via runtime.subagent.run({
+   │  open ephemeral verifier session via PluginRuntime.subagent.run({
    │    sessionKey: "assei-verifier:<parent>:<turn>",
    │    idempotencyKey: "assei:<parent>:<turn>",
    │    message: <verifier prompt>,
-   │    model: <optional override>,
+   │    model: <required, from assei.model>,
    │  })
-   │  → subagent.waitForRun
-   │  → subagent.getSessionMessages → parse "STATUS: CONTINUE|DONE|BLOCKED"
-   │  → subagent.deleteSession (cleanup)
+   │  → PluginRuntime.subagent.waitForRun
+   │  → PluginRuntime.subagent.getSessionMessages → parse "STATUS: CONTINUE|DONE|BLOCKED"
+   │  → PluginRuntime.subagent.deleteSession (cleanup)
    │
-   ├─ DONE/BLOCKED ──→ record verdict, stop
+   ├─ DONE/BLOCKED ──→ record verdict in audit log, stop
    │
    └─ CONTINUE ──→ spawn detached `openclaw agent --session-id <same>`
-                    (autonomous next turn)
+                    (OpenClaw runs the autonomous next turn)
 ```
 
 The verifier prompt is the recent assistant/user transcript (last 8
@@ -167,13 +179,13 @@ pnpm --filter @iyen/assei test           # unit + integration (mocked subagent)
 pnpm --filter @iyen/assei test:e2e       # real openclaw gateway E2E
 ```
 
-The E2E script (`test-e2e-gateway.sh`):
+The E2E script (`test-e2e-gateway.sh`) drives a real OpenClaw gateway:
 
-- requires a local openclaw at `~/.openclaw/bin/openclaw` (override `OPENCLAW_BIN`)
+- requires a local OpenClaw CLI at `~/.openclaw/bin/openclaw` (override `OPENCLAW_BIN`)
 - needs a populated `~/.openclaw/openclaw.json` (auto-backed-up + restored)
 - needs port `18789` free (override `ASSEI_E2E_PORT`)
 - **requires `ASSEI_E2E_MODEL`** — Assei refuses to run without a pinned external verifier model
-- runs 17 assertions over disk artifacts and gateway log evidence
+- starts `openclaw gateway run` in the background, exercises a turn through the OpenClaw runtime, and runs 17 assertions over disk artifacts and gateway-log evidence
 - `ASSEI_E2E_KEEP=1` leaves env up for inspection (you must clean up)
 
 Example:
@@ -183,26 +195,29 @@ ASSEI_E2E_MODEL=apiclient/glm-5.1 pnpm --filter @iyen/assei test:e2e
 
 ---
 
-## Programmatic use (advanced)
+## Programmatic use (advanced — for other OpenClaw extensions)
 
-`maybeRunAssei` accepts an injected `deps.subagent` so other context
-engines can drive Assei without going through this plugin shell:
+`maybeRunAssei` accepts an injected `deps.subagent` so another OpenClaw
+context-engine extension can drive Assei without going through this
+plugin shell:
 
 ```js
 import { maybeRunAssei } from "@iyen/assei";
 
+// Inside your own OpenClaw extension's register(api):
 const result = await maybeRunAssei(
   { sessionId: "ses_abc", messages: [...] },
-  { assei: { enabled: true } },
-  { subagent: api.runtime.subagent }, // captured at register(api) time
+  { assei: { enabled: true, model: "apiclient/glm-5.1" } },
+  { subagent: api.runtime.subagent }, // PluginRuntime.subagent captured at register(api) time
 );
 // result.action:
 //   'disabled' | 'skip' | 'validated_stop' | 'spawn_continue' | 'blocked' | 'error'
 ```
 
-This is the supported integration point if you want to drive Assei from
-your own context engine instead of registering it as the slot directly:
-capture `api.runtime.subagent` at `register(api)` time and pass it as
+This is the supported integration point if you are building another
+OpenClaw extension that wants the Assei verifier loop as a sub-component
+instead of binding `assei` directly to the `contextEngine` slot. Capture
+`api.runtime.subagent` at `register(api)` time and pass it as
 `deps.subagent`.
 
 For backward compatibility, `config.externalValidation.*` and

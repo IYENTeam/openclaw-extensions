@@ -1,5 +1,7 @@
 {
   "id": "assei",
+  "name": "Assei (external-verifier context engine)",
+  "description": "OpenClaw extension. Binds to the `contextEngine` slot and uses the `afterTurn` hook to run an external verifier model via PluginRuntime.subagent — auto-continues the same OpenClaw session until the verifier reports DONE or BLOCKED.",
   "enabledByDefault": false,
   "configSchema": {
     "type": "object",
