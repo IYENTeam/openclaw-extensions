@@ -23,9 +23,9 @@ without further user input.
 
 ## Install (for agents)
 
-> Read the **root [README](../../README.md)** first if you have not picked
-> a package yet. Below is the install recipe assuming the user wants
-> autonomous continuation specifically.
+> The root [README](../../README.md) covers the install flow end-to-end
+> (intent check → pick a verifier model → patch `~/.openclaw/openclaw.json`).
+> The recipe below is the same thing condensed for direct package install.
 
 ### 1. Link the plugin
 
@@ -89,7 +89,6 @@ openclaw gateway restart 2>/dev/null \
 
 - Do **not** install Assei without an explicit `assei.model`. The plugin will refuse to run and write `validator_failed: assei.model is required` to the audit log on every turn. If the user has not chosen a verifier model, ask before installing.
 - Do **not** set `assei.model` to the same model the main agent is using. The whole point of Assei is independent verification.
-- Do **not** also bind `session-branch-engine` to `plugins.slots.contextEngine` — only one wins. If the user wants both behaviors, install **`session-branch-engine` instead** and enable `assei` inside its `entries.session-branch-engine.assei` block (`model` is still required there).
 - Do **not** edit any other key in `~/.openclaw/openclaw.json` (channels, agents, gateway.auth, etc.).
 - Do **not** add this plugin if the user only wants `--local` embedded runs — assei requires a real gateway runtime to function (see "Runtime requirement" below).
 
@@ -201,7 +200,10 @@ const result = await maybeRunAssei(
 //   'disabled' | 'skip' | 'validated_stop' | 'spawn_continue' | 'blocked' | 'error'
 ```
 
-`@iyen/session-branch-engine` uses exactly this pattern.
+This is the supported integration point if you want to drive Assei from
+your own context engine instead of registering it as the slot directly:
+capture `api.runtime.subagent` at `register(api)` time and pass it as
+`deps.subagent`.
 
 For backward compatibility, `config.externalValidation.*` and
 `config.continuousExternalValidation.*` are still accepted as fallback

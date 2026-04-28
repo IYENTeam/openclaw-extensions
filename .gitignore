@@ -13,7 +13,5 @@ dist/
 .env
 .env.local
 
-# session-branch-engine runtime artifacts
-.phronesis-spool/
-.phronesis-spool-test/
-.phronesis-spool-afterturn-test/
+# assei runtime artifacts (state + audit log written into workspace)
+.openclaw/

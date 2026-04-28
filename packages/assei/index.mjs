@@ -10,8 +10,9 @@ import { maybeRunAssei } from "./assei-loop.mjs";
  * can call `maybeRunAssei` directly without the plugin shell.
  *
  * The plugin does NOT participate in assemble/compact/maintenance: those hooks
- * are no-op pass-throughs so it can coexist with any other context-engine that
- * the user actually wants for context strategy (e.g. @iyen/session-branch-engine).
+ * are no-op pass-throughs so the plugin focuses solely on the verifier loop
+ * and stays compatible with any context-strategy engine a user might layer
+ * on top in their own fork.
  */
 
 function buildAsseiParams(params) {
@@ -90,7 +91,8 @@ export default function register(api) {
       // The plugin's `config` IS the assei settings block from openclaw.json
       // (entries.assei.*). maybeRunAssei expects either { assei: {...} } or
       // a legacy externalValidation wrapper; wrap so both call paths
-      // (standalone plugin vs embedded inside session-branch-engine) work.
+      // (standalone plugin vs an external driver passing its own wrapper)
+      // resolve consistently.
       const wrappedConfig = (config && (config.assei || config.externalValidation))
         ? config
         : { assei: config };

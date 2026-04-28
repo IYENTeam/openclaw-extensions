@@ -14,15 +14,6 @@ importers:
         specifier: '>=2026.4.22'
         version: 2026.4.26
 
-  packages/session-branch-engine:
-    dependencies:
-      '@iyen/assei':
-        specifier: workspace:*
-        version: link:../assei
-      openclaw:
-        specifier: '>=2026.4.22'
-        version: 2026.4.26
-
 packages:
 
   '@agentclientprotocol/sdk@0.20.0':
