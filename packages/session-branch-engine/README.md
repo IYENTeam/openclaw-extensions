@@ -1,61 +1,173 @@
-# Session Branch Engine Prototype
+# @iyen/session-branch-engine
 
-OpenClaw context engine prototype for proactive session branching:
-- continue
-- rewind
-- clear
-- compact
-- subagent
+OpenClaw context-engine plugin. After every agent turn, picks one of:
 
-## Files
-- `health.mjs` — signal derivation + health banding
-- `strategy.mjs` — branch decision engine
-- `index.mjs` — OpenClaw context engine registration skeleton
-- `test.mjs` — smoke tests for decision logic
+- `continue` — healthy, do nothing
+- `compact` — token pressure, summarize history
+- `clear` — tool-output bomb, drop messages
+- `rewind` — branch instability, return to last solid node
+- `subagent` — heavy exploration, fork to subagent
 
-## Current status
-- Runtime decision core implemented
-- OpenClaw context-engine registration skeleton implemented
-- Smoke tests passing
-- Installed into live OpenClaw config as the context engine slot
-- `compact()` currently delegates to OpenClaw runtime
-- `rewind` / `clear` / durable-memory side effects are decision-only in v0.1.0
-- `afterTurn()` now supports HTTP mediation into MemoryOwn-compatible endpoints
-- `afterTurn()` also runs the external validation loop: recent turn evidence is checked by an external model and, only if confirmed actionable, re-enters the same OpenClaw session.
-- Default endpoint base URL: `http://127.0.0.1:8788`
-- Set `PHRONESIS_DISABLE_HTTP=1` to force local noop mediation fallback
-- `observeOnly: true` preserves recommendation/telemetry while forcing runtime strategy to `continue`
+Optionally drives [`@iyen/assei`](../assei) (autonomous turn continuation) and
+ingests turn summaries into a Phronesis long-term memory service.
 
-## Test
+- Plugin id: **`session-branch-engine`**
+- Slot: **`contextEngine`**
+- Status in v0.1.0: decision logic complete; `compact()` delegates to runtime; `rewind` / `clear` / durable-memory side effects are decision-only.
+- Side effects per turn: optional Phronesis HTTP ingest (default `http://127.0.0.1:8788`, async spool); optional Assei verifier loop (writes `.openclaw/assei.{json,log}`).
+
+---
+
+## Install (for agents)
+
+> Read the **root [README](../../README.md)** first if you have not picked
+> a package yet. Below assumes the user wants smart context strategy
+> (compact/rewind/clear/subagent), with or without autonomous continuation.
+
+### 1. Link the plugin
+
 ```bash
-cd /Users/iyen/.openclaw/workspace/openclaw-runtime/session-branch-engine
-node test.mjs
-node test-observe-only.mjs
-node test-spool.mjs
-node test-external-validation-loop.mjs
+REPO=$HOME/.openclaw/extensions/openclaw-extensions
+git clone https://github.com/IYENTeam/openclaw-extensions.git "$REPO" 2>/dev/null \
+  || git -C "$REPO" pull --ff-only
+openclaw plugins install --link "$REPO/packages/session-branch-engine"
 ```
 
-## External validation loop
+### 2. Patch `~/.openclaw/openclaw.json`
 
-When the context engine is installed as the `contextEngine` slot, every `afterTurn()` asks an external verifier whether another immediately executable action remains. The inner model's job is only to do the work and report; it does not need to know this loop exists. User-visible replies should not append status tags.
+Make a backup, then merge:
 
-- Verifier input: recent turn evidence only.
-- External verifier returns `CONTINUE`: spawn `openclaw agent --session-id <same-session>` with a neutral continuation prompt.
-- External verifier returns `DONE` / `BLOCKED`: record stop state, do not continue.
-- Deduplication: turn id/run id/message evidence hash + session id is tracked in `.openclaw/external-validation-loop.json`.
-- Safety cap: defaults to 8 externally verified continuations per session.
-
-Config/env knobs:
-- `externalValidation.enabled` or `OPENCLAW_EXTERNAL_VALIDATION=0`
-- `externalValidation.model` or `OPENCLAW_EXTERNAL_VALIDATOR_MODEL` (default `closedrouter-zai/glm-5.1`)
-- `externalValidation.maxContinuesPerSession` or `OPENCLAW_EXTERNAL_VALIDATION_MAX_CONTINUES`
-- `externalValidation.dryRun` or `OPENCLAW_EXTERNAL_VALIDATION_DRY_RUN=1`
-
-## HTTP mediation quick test
 ```bash
-cd /Users/iyen/.openclaw/workspace/openclaw-runtime/session-branch-engine
+cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.$(date +%s)
+```
+
+```jsonc
+{
+  "plugins": {
+    "slots": { "contextEngine": "session-branch-engine" },
+    "allow": ["session-branch-engine"],
+    "entries": {
+      "session-branch-engine": {
+        "enabled": true,
+        "observeOnly": true,
+        "softThreshold": 0.6,
+        "flushThreshold": 0.75,
+        "emergencyThreshold": 0.85,
+        "assei": {
+          "enabled": true
+          // Optional: pin a verifier-only model.
+          // "model": "openai/gpt-5-mini"
+        }
+      }
+    }
+  }
+}
+```
+
+> `observeOnly: true` is the recommended starting state: the engine emits
+> recommendations and telemetry but forces the runtime strategy to
+> `continue`, so it cannot break the user's session while you tune.
+
+### 3. Verify
+
+```bash
+openclaw plugins list | grep -E '^.*session-branch-engine.*loaded'
+openclaw plugins doctor
+openclaw gateway restart 2>/dev/null \
+  || pkill -f 'openclaw gateway run' \
+  || echo "(start the gateway manually next time you need it)"
+```
+
+### Don'ts (agent rules)
+
+- Do **not** also bind `assei` directly to `plugins.slots.contextEngine`. session-branch-engine already drives assei via its `entries.session-branch-engine.assei` block; binding both fights for the same slot.
+- Do **not** disable `observeOnly` on first install unless the user explicitly asks for active mutation.
+- Do **not** edit unrelated keys in `~/.openclaw/openclaw.json`.
+- The Phronesis HTTP ingest path defaults to `http://127.0.0.1:8788`. If the user does **not** run a Phronesis service, set `phronesis.disableHttp: true` (or env `PHRONESIS_DISABLE_HTTP=1`) so the engine falls back to local no-op mediation.
+
+---
+
+## Configuration reference
+
+`plugins.entries.session-branch-engine.*`:
+
+| Key | Default | Description |
+|---|---|---|
+| `enabled` | `true` | Master enable. |
+| `observeOnly` | `false` | Emit recommendations but force `continue` at runtime. **Recommended `true` for first install.** |
+| `softThreshold` | `0.6` | Token-ratio at which `subagent` becomes a candidate. |
+| `flushThreshold` | `0.75` | Token-ratio at which `compact`/`clear` activates. |
+| `emergencyThreshold` | `0.85` | Token-ratio for hard `compact`/`clear`. |
+| `phronesis.disableHttp` | `false` | Skip Phronesis HTTP ingest entirely (local no-op). Also via `PHRONESIS_DISABLE_HTTP=1`. |
+| `phronesis.mode` | `queued` | `queued` (async spool) or `sync` (blocking HTTP). |
+| `phronesis.apiBase` | `http://127.0.0.1:8788` | MemoryOwn-compatible Phronesis endpoint. |
+| `assei.*` | _see [`@iyen/assei`](../assei) README_ | Forwarded straight to the assei loop. |
+
+### Strategy decision (simplified)
+
+```
+hardCritical?
+├─ promptTooLong → compact
+├─ stuckRunSignal → rewind
+├─ tool output bomb → clear
+└─ else → compact
+
+token usage ≥ emergency (0.85)?
+├─ tool output big → clear
+└─ else → compact
+
+heavy exploration + subagent candidate? → subagent
+
+token usage ≥ flush (0.75)?
+├─ tool output big → clear
+└─ else → compact
+
+branch unstable + solid node available? → rewind
+token usage ≥ soft (0.6) + subagent candidate? → subagent
+else → continue
+```
+
+---
+
+## Lifecycle hooks
+
+| Hook | Role |
+|---|---|
+| `assemble` | Sanitize messages (orphan tool-call/result removal), trim to token budget, append strategy hint to system prompt. |
+| `maintain` | Derive health signals → choose strategy. In `observeOnly` mode, force strategy to `continue` while keeping `recommendedStrategy` for telemetry. |
+| `afterTurn` | Run Assei loop (optional), then if strategy is `compact`/`rewind`/`subagent`, push turn summary to Phronesis spool. |
+| `compact` | Delegate to OpenClaw runtime (no custom compaction in v0.1.0). |
+
+---
+
+## Tests
+
+```bash
+pnpm --filter @iyen/session-branch-engine test
+```
+
+Additional offline scenarios:
+
+```bash
+node packages/session-branch-engine/test-afterturn-strategy.mjs
+node packages/session-branch-engine/test-message-shape.mjs
+node packages/session-branch-engine/test-observe-only.mjs
+node packages/session-branch-engine/test-sanitize-tool-pairs.mjs
+```
+
+`test-afterturn-spool.mjs` requires a live Phronesis service on
+`127.0.0.1:8788`; it is not run as part of the default test script.
+
+---
+
+## Phronesis quick check
+
+If the user runs a Phronesis service and you want to verify the ingest
+path lands a turn summary:
+
+```bash
 node --input-type=module -e '
-import { createHttpPhronesisMediation } from "./phronesis-http-mediation.mjs";
+import { createHttpPhronesisMediation } from "./packages/session-branch-engine/phronesis-http-mediation.mjs";
 const mediation = createHttpPhronesisMediation({ baseUrl: "http://127.0.0.1:8788" });
 const result = await mediation.ingestTurnSummary({
   sessionKey: "agent:test",
@@ -76,11 +188,13 @@ console.log(result);
 '
 ```
 
-## Next integration step
-1. Install this as a local OpenClaw plugin bundle
-2. Select `plugins.slots.contextEngine = "session-branch-engine"`
-3. Start with observe-only mode
-4. Async spool + worker handoff implemented for ingest path
-5. Flush worker can auto-merge approved candidates into claims
-6. Add real clear/rewind/session-state persistence
-7. Add merge/review automation policy beyond the current minimal reviewer
+## Roadmap
+
+1. Real `clear` / `rewind` side-effect implementation (currently decision-only).
+2. Custom compaction (currently delegated to runtime).
+3. Phronesis flush-worker auto-merge of approved candidates.
+4. Reviewer policy beyond the minimal placeholder.
+
+## License
+
+MIT
