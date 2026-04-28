@@ -219,6 +219,7 @@ function makeFakeSubagent({ verdicts }) {
     assei: {
       stateFile: join(dir, 'state.json'),
       logFile: join(dir, 'loop.log'),
+      model: 'apiclient/glm-5.1',
     },
   };
   const result = await maybeRunAssei({
@@ -271,6 +272,34 @@ function makeFakeSubagent({ verdicts }) {
   });
   assert.equal(result.action, 'error');
   assert.match(result.error, /PluginRuntime\.subagent API not available/);
+}
+
+// --- Model is required: assei.model must be pinned, no silent fallback ----
+// Assei is by definition an EXTERNAL verifier. Falling back to whatever the
+// main agent uses defeats the purpose, so the verifier must error rather
+// than quietly use the same model.
+{
+  const dir = mkdtempSync(join(tmpdir(), 'oc-assei-nomodel-'));
+  const subagent = {
+    async run() { throw new Error('subagent.run must not be called when model is missing'); },
+  };
+  const prevModelEnv = process.env.OPENCLAW_ASSEI_MODEL;
+  delete process.env.OPENCLAW_ASSEI_MODEL;
+  const result = await maybeRunAssei({
+    sessionId: 'no-model-session',
+    turnId: 't1',
+    messages: [{ role: 'assistant', content: 'x' }],
+    runtimeContext: { workspaceDir: dir },
+  }, {
+    assei: {
+      stateFile: join(dir, 'state.json'),
+      logFile: join(dir, 'loop.log'),
+      // model intentionally omitted
+    },
+  }, { subagent });
+  if (prevModelEnv !== undefined) process.env.OPENCLAW_ASSEI_MODEL = prevModelEnv;
+  assert.equal(result.action, 'error');
+  assert.match(result.error, /assei\.model is required/);
 }
 
 // --- Self-recursion guard: don't process Assei's own verifier sessions ----

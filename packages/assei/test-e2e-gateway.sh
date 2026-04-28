@@ -22,6 +22,8 @@
 # Optional env vars:
 #   OPENCLAW_BIN     - path to openclaw CLI (default: ~/.openclaw/bin/openclaw)
 #   ASSEI_E2E_PORT   - gateway port (default: 18789)
+#   ASSEI_E2E_MODEL  - verifier model id (REQUIRED; assei refuses to run
+#                       without a pinned external verifier model)
 #   ASSEI_E2E_KEEP   - if "1", do NOT restore config / kill gateway on exit
 #                       (debug-only; you must clean up manually)
 
@@ -33,6 +35,7 @@ set -uo pipefail
 PKG_DIR="$(cd "$(dirname "$0")" && pwd)"
 OPENCLAW_BIN="${OPENCLAW_BIN:-$HOME/.openclaw/bin/openclaw}"
 PORT="${ASSEI_E2E_PORT:-18789}"
+MODEL="${ASSEI_E2E_MODEL:-}"
 CONFIG_PATH="$HOME/.openclaw/openclaw.json"
 WORKSPACE="$HOME/.openclaw/workspace"
 ASSEI_STATE="$WORKSPACE/.openclaw/assei.json"
@@ -145,6 +148,12 @@ if [ ! -f "$CONFIG_PATH" ]; then
 fi
 ok "openclaw config: $CONFIG_PATH"
 
+if [ -z "$MODEL" ]; then
+  fail "ASSEI_E2E_MODEL is required (assei is an external verifier; pin a model independent of the main agent, e.g. ASSEI_E2E_MODEL=apiclient/glm-5.1)"
+  exit 1
+fi
+ok "verifier model: $MODEL"
+
 # Make sure no other process is already on the port
 if lsof -nPiTCP:"$PORT" -sTCP:LISTEN >/dev/null 2>&1; then
   fail "port $PORT is already in use; stop the listener or set ASSEI_E2E_PORT"
@@ -168,14 +177,16 @@ step "install assei plugin (linked)"
 INSTALLED_PLUGIN=1
 ok "linked: $PKG_DIR"
 
-python3 - "$CONFIG_PATH" "$PORT" <<'PY'
+python3 - "$CONFIG_PATH" "$PORT" "$MODEL" <<'PY'
 import json, sys
-p, port = sys.argv[1], int(sys.argv[2])
+p, port, model = sys.argv[1], int(sys.argv[2]), sys.argv[3]
 c = json.load(open(p))
 plugins = c.setdefault('plugins', {})
 plugins.setdefault('slots', {})['contextEngine'] = 'assei'
 allow = plugins.setdefault('allow', [])
 if 'assei' not in allow: allow.append('assei')
+entries = plugins.setdefault('entries', {})
+entries['assei'] = { 'enabled': True, 'config': { 'model': model } }
 gw = c.setdefault('gateway', {})
 gw['mode'] = 'local'
 gw.setdefault('bind', 'loopback')
@@ -183,7 +194,7 @@ gw['port'] = port
 gw.pop('auth', None)
 open(p, 'w').write(json.dumps(c, indent=2))
 PY
-ok "config patched: contextEngine=assei, gateway.mode=local, port=$PORT"
+ok "config patched: contextEngine=assei, model=$MODEL, gateway.mode=local, port=$PORT"
 
 # ---------------------------------------------------------------------------
 # Start gateway (background)

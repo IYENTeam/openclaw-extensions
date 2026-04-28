@@ -147,6 +147,7 @@ assert.match(mappedEmpty.turnId, /^pp-4-len-0$/);
   const engineWithSub = regs2[0].factory({
     enabled: true,
     dryRun: true,
+    model: 'apiclient/glm-5.1',
     stateFile: join(dir, 'with-sub-state.json'),
     logFile: join(dir, 'with-sub.log'),
   });
@@ -194,6 +195,35 @@ assert.match(mappedEmpty.turnId, /^pp-4-len-0$/);
     runtimeContext: { workspaceDir: dir },
   });
   assert.equal(r, undefined);
+}
+
+// --- Test 8: model missing -> validator_failed in log, no crash -----------
+// Assei is an EXTERNAL verifier; if no model is pinned the plugin must
+// surface a clear error in its audit log and continue without spawning the
+// verifier (afterTurn contract is Promise<void> so it must NEVER throw).
+{
+  const { api: api3, registrations: regs3, subagentCalls } = makeFakeApi({});
+  register(api3);
+  const prevEnv = process.env.OPENCLAW_ASSEI_MODEL;
+  delete process.env.OPENCLAW_ASSEI_MODEL;
+  const engineNoModel = regs3[0].factory({
+    enabled: true,
+    stateFile: join(dir, 'no-model-state.json'),
+    logFile: join(dir, 'no-model.log'),
+    // model intentionally omitted
+  });
+  const r = await engineNoModel.afterTurn({
+    sessionId: 'ses_no_model',
+    messages: [{ role: 'assistant', content: 'x' }],
+    prePromptMessageCount: 0,
+    runtimeContext: { workspaceDir: dir },
+  });
+  if (prevEnv !== undefined) process.env.OPENCLAW_ASSEI_MODEL = prevEnv;
+  assert.equal(r, undefined, 'afterTurn must not throw when model is missing');
+  assert.equal(subagentCalls.length, 0, 'subagent.run must NOT be called when model is missing');
+  const log = readFileSync(join(dir, 'no-model.log'), 'utf8');
+  assert.match(log, /validator_failed/);
+  assert.match(log, /assei\.model is required/);
 }
 
 console.log('assei plugin tests passed');

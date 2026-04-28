@@ -132,18 +132,18 @@ async function runAsseiVerifier(resolved, input, deps = {}) {
   if (!subagent || typeof subagent.run !== 'function') {
     throw new Error('assei: PluginRuntime.subagent API not available; the verifier loop only runs inside an openclaw plugin runtime');
   }
+  if (!resolved.model) {
+    throw new Error('assei: assei.model is required — Assei is an EXTERNAL verifier and must be pinned to a model that is independent of the main agent. Set plugins.entries.assei.model in openclaw.json or OPENCLAW_ASSEI_MODEL.');
+  }
 
   const prompt = buildVerifierPrompt(input.messageExcerpt);
   const verifierSessionKey = `assei-verifier:${input.parentSessionRef}:${input.turnRef}`;
-  // Stable idempotency key per (parent session, turn) so a re-fired afterTurn
-  // doesn't double-spawn the verifier. The runtime requires this field.
   const idempotencyKey = `assei:${input.parentSessionRef}:${input.turnRef}`;
 
-  // Kick off the verifier turn
   const runResult = await subagent.run({
     sessionKey: verifierSessionKey,
     message: prompt,
-    ...(resolved.model ? { model: resolved.model } : {}),
+    model: resolved.model,
     lightContext: true,
     deliver: false,
     idempotencyKey,

@@ -3,14 +3,19 @@
   "enabledByDefault": false,
   "configSchema": {
     "type": "object",
+    "required": ["model"],
     "additionalProperties": true,
     "properties": {
       "enabled": { "type": "boolean" },
-      "model": { "type": "string" },
+      "model": {
+        "type": "string",
+        "description": "REQUIRED. Verifier model id. Assei is an external verifier and must be pinned to a model independent of the main agent (e.g. 'openai/gpt-5-mini', 'apiclient/glm-5.1')."
+      },
       "timeoutMs": { "type": "number" },
       "agentTimeoutSeconds": { "type": "number" },
       "maxContinuesPerSession": { "type": "number" },
       "dryRun": { "type": "boolean" },
+      "keepVerifierSession": { "type": "boolean" },
       "openclawBin": { "type": "string" },
       "stateFile": { "type": "string" },
       "logFile": { "type": "string" }

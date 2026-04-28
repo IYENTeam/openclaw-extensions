@@ -1,13 +1,22 @@
 # @iyen/assei
 
-OpenClaw context-engine plugin. After every agent turn, asks an external
-verifier model "is more work needed?" — if yes, auto-spawns a detached
-continuation of the same session so the agent keeps going without further
-user input.
+OpenClaw context-engine plugin. After every agent turn, asks an
+**independent verifier model** "is more work needed?" — if yes, auto-spawns
+a detached continuation of the same session so the agent keeps going
+without further user input.
+
+> **`assei.model` is required.** Assei is by design an *external* verifier:
+> it must be pinned to a model that is independent of whatever model is
+> driving the main agent. Without that pin the loop quietly devolves into
+> "ask yourself if you're done", which is exactly what Assei exists to
+> avoid. The plugin therefore refuses to run when no model is configured
+> and writes a clear `validator_failed` entry to the audit log instead of
+> guessing a fallback.
 
 - Plugin id: **`assei`**
 - Slot: **`contextEngine`**
-- Verdict source: any model OpenClaw is already wired up to use (delegates via `runtime.subagent.run`). No HTTP, no separate API key.
+- Verifier model: **must be pinned via `assei.model` or `OPENCLAW_ASSEI_MODEL`** — any model id that openclaw can already invoke (`openai/gpt-5-mini`, `apiclient/glm-5.1`, etc.).
+- Verdict transport: `runtime.subagent.run` — openclaw owns provider/auth/billing. No HTTP, no separate API key.
 - Side effects per turn: writes `<workspace>/.openclaw/assei.json` (dedup state) and `<workspace>/.openclaw/assei.log` (audit trail).
 
 ---
@@ -43,15 +52,23 @@ cp ~/.openclaw/openclaw.json ~/.openclaw/openclaw.json.bak.$(date +%s)
     "allow": ["assei"],
     "entries": {
       "assei": {
-        "enabled": true
-        // Optional: pin a verifier-only model (else openclaw default agent
-        // model is used).
-        // "model": "openai/gpt-5-mini"
+        "enabled": true,
+        // REQUIRED. Pin a verifier model that is independent of the main
+        // agent. Any model id openclaw can invoke works — e.g.
+        // "openai/gpt-5-mini", "anthropic/claude-haiku-4", "apiclient/glm-5.1".
+        // Pick something cheap/fast; the verifier only needs to read a
+        // short transcript and reply with one of STATUS: CONTINUE/DONE/BLOCKED.
+        "model": "<provider>/<verifier-model-id>"
       }
     }
   }
 }
 ```
+
+> Replace `"<provider>/<verifier-model-id>"` with an actual model the user
+> has access to. If you (the agent) are unsure, ask the user which of their
+> configured models should act as the verifier. **Do not silently default
+> to the main agent's model** — that defeats the entire purpose of Assei.
 
 ### 3. Verify
 
@@ -70,7 +87,9 @@ openclaw gateway restart 2>/dev/null \
 
 ### Don'ts (agent rules)
 
-- Do **not** also bind `session-branch-engine` to `plugins.slots.contextEngine` — only one wins. If the user wants both behaviors, install **`session-branch-engine` instead** and enable `assei` inside its `entries.session-branch-engine.assei` block.
+- Do **not** install Assei without an explicit `assei.model`. The plugin will refuse to run and write `validator_failed: assei.model is required` to the audit log on every turn. If the user has not chosen a verifier model, ask before installing.
+- Do **not** set `assei.model` to the same model the main agent is using. The whole point of Assei is independent verification.
+- Do **not** also bind `session-branch-engine` to `plugins.slots.contextEngine` — only one wins. If the user wants both behaviors, install **`session-branch-engine` instead** and enable `assei` inside its `entries.session-branch-engine.assei` block (`model` is still required there).
 - Do **not** edit any other key in `~/.openclaw/openclaw.json` (channels, agents, gateway.auth, etc.).
 - Do **not** add this plugin if the user only wants `--local` embedded runs — assei requires a real gateway runtime to function (see "Runtime requirement" below).
 
@@ -83,7 +102,7 @@ openclaw gateway restart 2>/dev/null \
 | Key | Default | Description |
 |---|---|---|
 | `enabled` | `true` | Enable/disable the loop. |
-| `model` | _openclaw default_ | Verifier model id passed to `subagent.run({ model })`. Pin a small/fast model just for verification. |
+| `model` | **(required, no default)** | Verifier model id passed to `subagent.run({ model })`. Must be set; the plugin refuses to run otherwise. Pick a small/fast model independent of the main agent. |
 | `timeoutMs` | `120000` | Verifier subagent wait timeout (ms). |
 | `agentTimeoutSeconds` | `600` | Continuation `openclaw agent` timeout (sec). |
 | `maxContinuesPerSession` | `8` | Cap on auto-continuations per parent session before forced BLOCKED. |
@@ -154,8 +173,14 @@ The E2E script (`test-e2e-gateway.sh`):
 - requires a local openclaw at `~/.openclaw/bin/openclaw` (override `OPENCLAW_BIN`)
 - needs a populated `~/.openclaw/openclaw.json` (auto-backed-up + restored)
 - needs port `18789` free (override `ASSEI_E2E_PORT`)
+- **requires `ASSEI_E2E_MODEL`** — Assei refuses to run without a pinned external verifier model
 - runs 17 assertions over disk artifacts and gateway log evidence
 - `ASSEI_E2E_KEEP=1` leaves env up for inspection (you must clean up)
+
+Example:
+```bash
+ASSEI_E2E_MODEL=apiclient/glm-5.1 pnpm --filter @iyen/assei test:e2e
+```
 
 ---
 

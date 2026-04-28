@@ -57,10 +57,16 @@ package-specific settings. Use exactly one of the snippets below.
     "allow": ["assei"],
     "entries": {
       "assei": {
-        "enabled": true
-        // Optional: pin a verifier-only model. If omitted, openclaw's
-        // current default agent model is used.
-        // "model": "openai/gpt-5-mini"
+        "enabled": true,
+        "config": {
+          // REQUIRED — Assei is an EXTERNAL verifier and must be pinned to
+          // a model that is independent of the main agent. Replace with an
+          // actual model id the user has access to (e.g.
+          // "openai/gpt-5-mini", "anthropic/claude-haiku-4",
+          // "apiclient/glm-5.1"). If you (the agent) don't know which
+          // model to use, ASK first.
+          "model": "<provider>/<verifier-model-id>"
+        }
       }
     }
   }
@@ -77,12 +83,19 @@ package-specific settings. Use exactly one of the snippets below.
     "entries": {
       "session-branch-engine": {
         "enabled": true,
-        "observeOnly": true,
-        "softThreshold": 0.6,
-        "flushThreshold": 0.75,
-        "emergencyThreshold": 0.85,
-        "assei": {
-          "enabled": true
+        "config": {
+          "observeOnly": true,
+          "softThreshold": 0.6,
+          "flushThreshold": 0.75,
+          "emergencyThreshold": 0.85,
+          "assei": {
+            "enabled": true,
+            // REQUIRED if assei.enabled. Pin an external verifier model
+            // that is independent of the main agent (cheap/fast model
+            // preferred). Replace with an actual model id the user has —
+            // e.g. "openai/gpt-5-mini", "apiclient/glm-5.1".
+            "model": "<provider>/<verifier-model-id>"
+          }
         }
       }
     }
@@ -109,6 +122,7 @@ agent) for the new context engine to take effect.
 
 ### Hard rules for agents
 
+- **Never** install `assei` (directly or via session-branch-engine) without an explicit `assei.model` set to a model **different from** the main agent. Assei is an external verifier; using the same model defeats it. If the user has not chosen a verifier model, **ask** first — do not pick one silently.
 - **Never** put both `assei` and `session-branch-engine` in `plugins.slots.contextEngine` — only one slot value is honored. Pick one.
 - **Never** add both to `plugins.allow` unless you also disable assei's redundant top-level binding (session-branch-engine drives assei itself).
 - **Never** modify any other key in `~/.openclaw/openclaw.json` (channels, agents, gateway.auth, etc.). The user owns those.
