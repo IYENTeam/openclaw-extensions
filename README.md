@@ -12,7 +12,6 @@ OpenClaw runtime via its standard plugin interface.
 | Package | Status | Purpose |
 |---|---|---|
 | [`@iyen/session-branch-engine`](./packages/session-branch-engine) | Prototype, observe-only | OpenClaw context engine for proactive `continue` / `rewind` / `clear` / `compact` / `subagent` branching with Phronesis spool + external validation loop. |
-| [`@iyen/continuous-mode`](./packages/continuous-mode) | Sketch | Watchdog that bridges the `finish` tool's `.status-file` output to actual OpenClaw agent reactivation. |
 
 ## Layout
 
@@ -21,15 +20,11 @@ openclaw-extensions/
 ├── package.json            # workspace root
 ├── pnpm-workspace.yaml
 └── packages/
-    ├── session-branch-engine/
-    │   ├── package.json
-    │   ├── openclaw.plugin.json
-    │   ├── index.mjs
-    │   └── …
-    └── continuous-mode/
+    └── session-branch-engine/
         ├── package.json
-        ├── continuous-watchdog.mjs
-        └── README.md
+        ├── openclaw.plugin.json
+        ├── index.mjs
+        └── …
 ```
 
 ## Development
