@@ -1,0 +1,23 @@
+{
+  "name": "@iyen/continuous-mode",
+  "version": "0.0.1",
+  "description": "Watchdog that bridges OpenClaw's finish-tool .status-file output to actual agent reactivation.",
+  "type": "module",
+  "main": "continuous-watchdog.mjs",
+  "files": [
+    "continuous-watchdog.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "echo \"(no tests yet)\" && exit 0"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IYENTeam/openclaw-extensions.git",
+    "directory": "packages/continuous-mode"
+  }
+}

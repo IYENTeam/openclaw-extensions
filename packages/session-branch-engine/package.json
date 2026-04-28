@@ -1,0 +1,47 @@
+{
+  "name": "@iyen/session-branch-engine",
+  "version": "0.1.0",
+  "description": "Prototype OpenClaw context engine for proactive continue/rewind/clear/compact/subagent branching.",
+  "type": "module",
+  "main": "index.mjs",
+  "files": [
+    "index.mjs",
+    "health.mjs",
+    "strategy.mjs",
+    "observe-only.mjs",
+    "external-validation-loop.mjs",
+    "phronesis-bridge.ts",
+    "phronesis-flush.mjs",
+    "phronesis-http-mediation.mjs",
+    "phronesis-policy.mjs",
+    "phronesis-spool.mjs",
+    "openclaw.plugin.json",
+    "config.example.jsonc",
+    "README.md"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./index.mjs"
+    ]
+  },
+  "scripts": {
+    "test": "node ./test.mjs",
+    "test:afterturn": "node ./test-afterturn-strategy.mjs",
+    "test:message-shape": "node ./test-message-shape.mjs",
+    "test:observe": "node ./test-observe-only.mjs",
+    "test:spool": "node ./test-spool.mjs",
+    "test:afterturn-spool": "node ./test-afterturn-spool.mjs",
+    "test:external-validation": "node ./test-external-validation-loop.mjs",
+    "test:sanitize": "node ./test-sanitize-tool-pairs.mjs",
+    "flush:phronesis": "node ./phronesis-flush.mjs"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IYENTeam/openclaw-extensions.git",
+    "directory": "packages/session-branch-engine"
+  }
+}

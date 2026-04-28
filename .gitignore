@@ -1,0 +1,19 @@
+node_modules/
+.DS_Store
+*.log
+dist/
+.turbo/
+.pnpm-store/
+
+# editor
+.vscode/
+.idea/
+
+# env
+.env
+.env.local
+
+# session-branch-engine runtime artifacts
+.phronesis-spool/
+.phronesis-spool-test/
+.phronesis-spool-afterturn-test/

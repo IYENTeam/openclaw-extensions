@@ -1,0 +1,19 @@
+{
+  "name": "@iyen/openclaw-extensions",
+  "version": "0.1.0",
+  "private": true,
+  "description": "IYENTeam's OpenClaw plugin extensions monorepo (context engines, watchdogs, runtime add-ons).",
+  "type": "module",
+  "scripts": {
+    "test": "pnpm -r run test"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "packageManager": "pnpm@9.5.0",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IYENTeam/openclaw-extensions.git"
+  }
+}
