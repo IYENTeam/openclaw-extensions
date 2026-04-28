@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  packages/continuous-mode:
+  packages/external-verifier:
     dependencies:
       openclaw:
         specifier: '>=2026.4.22'
@@ -16,6 +16,9 @@ importers:
 
   packages/session-branch-engine:
     dependencies:
+      '@iyen/external-verifier':
+        specifier: workspace:*
+        version: link:../external-verifier
       openclaw:
         specifier: '>=2026.4.22'
         version: 2026.4.26

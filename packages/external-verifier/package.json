@@ -1,0 +1,26 @@
+{
+  "name": "@iyen/external-verifier",
+  "version": "0.1.0",
+  "description": "External validation loop for OpenClaw continuous mode — spawns an independent verifier model to decide CONTINUE / DONE / BLOCKED after each turn.",
+  "type": "module",
+  "main": "external-validation-loop.mjs",
+  "exports": {
+    ".": "./external-validation-loop.mjs"
+  },
+  "files": [
+    "external-validation-loop.mjs",
+    "README.md"
+  ],
+  "scripts": {
+    "test": "node ./test-external-validation-loop.mjs"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IYENTeam/openclaw-extensions.git",
+    "directory": "packages/external-verifier"
+  }
+}

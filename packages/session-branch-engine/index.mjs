@@ -6,7 +6,7 @@ import { shouldIngestToPhronesis } from "./phronesis-policy.mjs";
 import { createHttpPhronesisMediation } from "./phronesis-http-mediation.mjs";
 import { enqueuePhronesisPayload } from "./phronesis-spool.mjs";
 import { applyObserveOnly } from "./observe-only.mjs";
-import { maybeRunExternalValidationLoop } from "./external-validation-loop.mjs";
+import { maybeRunExternalValidationLoop } from "@iyen/external-verifier";
 
 function normalizeContentParts(content) {
   if (Array.isArray(content)) return content;

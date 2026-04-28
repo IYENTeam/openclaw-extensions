@@ -11,7 +11,8 @@ OpenClaw runtime via its standard plugin interface.
 
 | Package | Status | Purpose |
 |---|---|---|
-| [`@iyen/session-branch-engine`](./packages/session-branch-engine) | Prototype, observe-only | OpenClaw context engine for proactive `continue` / `rewind` / `clear` / `compact` / `subagent` branching with Phronesis spool + external validation loop. |
+| [`@iyen/session-branch-engine`](./packages/session-branch-engine) | Prototype, observe-only | OpenClaw context engine for proactive `continue` / `rewind` / `clear` / `compact` / `subagent` branching with Phronesis spool. |
+| [`@iyen/external-verifier`](./packages/external-verifier) | Prototype | Independent external validation loop — spawns a verifier model to decide CONTINUE / DONE / BLOCKED after each turn and optionally re-enters the session. |
 
 ## Layout
 
@@ -20,11 +21,15 @@ openclaw-extensions/
 ├── package.json            # workspace root
 ├── pnpm-workspace.yaml
 └── packages/
-    └── session-branch-engine/
+    ├── session-branch-engine/
+    │   ├── package.json
+    │   ├── openclaw.plugin.json
+    │   ├── index.mjs
+    │   └── …
+    └── external-verifier/
         ├── package.json
-        ├── openclaw.plugin.json
-        ├── index.mjs
-        └── …
+        ├── external-validation-loop.mjs
+        └── README.md
 ```
 
 ## Development

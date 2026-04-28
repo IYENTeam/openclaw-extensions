@@ -9,7 +9,6 @@
     "health.mjs",
     "strategy.mjs",
     "observe-only.mjs",
-    "external-validation-loop.mjs",
     "phronesis-bridge.ts",
     "phronesis-flush.mjs",
     "phronesis-http-mediation.mjs",
@@ -31,9 +30,11 @@
     "test:observe": "node ./test-observe-only.mjs",
     "test:spool": "node ./test-spool.mjs",
     "test:afterturn-spool": "node ./test-afterturn-spool.mjs",
-    "test:external-validation": "node ./test-external-validation-loop.mjs",
     "test:sanitize": "node ./test-sanitize-tool-pairs.mjs",
     "flush:phronesis": "node ./phronesis-flush.mjs"
+  },
+  "dependencies": {
+    "@iyen/external-verifier": "workspace:*"
   },
   "peerDependencies": {
     "openclaw": ">=2026.4.22"
