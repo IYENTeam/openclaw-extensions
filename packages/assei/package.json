@@ -1,0 +1,35 @@
+{
+  "name": "@iyen/assei",
+  "version": "0.1.0",
+  "description": "Assei — OpenClaw context-engine plugin that runs an external verifier after every turn and auto-spawns a continuation when work remains.",
+  "type": "module",
+  "main": "index.mjs",
+  "exports": {
+    ".": "./index.mjs",
+    "./loop": "./assei-loop.mjs"
+  },
+  "files": [
+    "index.mjs",
+    "assei-loop.mjs",
+    "openclaw.plugin.json",
+    "README.md"
+  ],
+  "openclaw": {
+    "extensions": [
+      "./index.mjs"
+    ]
+  },
+  "scripts": {
+    "test": "node ./test-assei-loop.mjs && node ./test-plugin.mjs",
+    "test:e2e": "./test-e2e-gateway.sh"
+  },
+  "peerDependencies": {
+    "openclaw": ">=2026.4.22"
+  },
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/IYENTeam/openclaw-extensions.git",
+    "directory": "packages/assei"
+  }
+}

@@ -6,7 +6,7 @@ import { shouldIngestToPhronesis } from "./phronesis-policy.mjs";
 import { createHttpPhronesisMediation } from "./phronesis-http-mediation.mjs";
 import { enqueuePhronesisPayload } from "./phronesis-spool.mjs";
 import { applyObserveOnly } from "./observe-only.mjs";
-import { maybeRunExternalValidationLoop } from "@iyen/external-verifier";
+import { maybeRunAssei } from "@iyen/assei";
 
 function normalizeContentParts(content) {
   if (Array.isArray(content)) return content;
@@ -284,6 +284,11 @@ function buildMediationFromConfig(config = {}) {
 }
 
 export default function register(api) {
+  // Capture the trusted plugin runtime once at registration so the assei
+  // verifier (called from afterTurn below) can delegate model invocation
+  // to openclaw via api.runtime.subagent.*.
+  const subagent = api?.runtime?.subagent;
+
   api.registerContextEngine("session-branch-engine", (config = {}) => ({
     info: {
       id: "session-branch-engine",
@@ -367,9 +372,9 @@ export default function register(api) {
         solidNodeId: params?.solidNodeId,
       };
 
-      const externalValidation = await maybeRunExternalValidationLoop(params, config);
+      const assei = await maybeRunAssei(params, config, { subagent });
 
-      if (!shouldIngestToPhronesis(strategy)) return { externalValidation };
+      if (!shouldIngestToPhronesis(strategy)) return { assei };
 
       const mediation = buildMediationFromConfig(config);
 
@@ -397,7 +402,7 @@ export default function register(api) {
         createdAt: new Date().toISOString(),
       });
 
-      return { externalValidation, phronesis };
+      return { assei, phronesis };
     },
 
     async compact(params) {

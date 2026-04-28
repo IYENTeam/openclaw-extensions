@@ -1,0 +1,19 @@
+{
+  "id": "assei",
+  "enabledByDefault": false,
+  "configSchema": {
+    "type": "object",
+    "additionalProperties": true,
+    "properties": {
+      "enabled": { "type": "boolean" },
+      "model": { "type": "string" },
+      "timeoutMs": { "type": "number" },
+      "agentTimeoutSeconds": { "type": "number" },
+      "maxContinuesPerSession": { "type": "number" },
+      "dryRun": { "type": "boolean" },
+      "openclawBin": { "type": "string" },
+      "stateFile": { "type": "string" },
+      "logFile": { "type": "string" }
+    }
+  }
+}

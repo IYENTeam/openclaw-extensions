@@ -34,7 +34,7 @@
     "flush:phronesis": "node ./phronesis-flush.mjs"
   },
   "dependencies": {
-    "@iyen/external-verifier": "workspace:*"
+    "@iyen/assei": "workspace:*"
   },
   "peerDependencies": {
     "openclaw": ">=2026.4.22"

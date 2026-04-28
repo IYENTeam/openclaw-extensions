@@ -8,7 +8,7 @@ importers:
 
   .: {}
 
-  packages/external-verifier:
+  packages/assei:
     dependencies:
       openclaw:
         specifier: '>=2026.4.22'
@@ -16,9 +16,9 @@ importers:
 
   packages/session-branch-engine:
     dependencies:
-      '@iyen/external-verifier':
+      '@iyen/assei':
         specifier: workspace:*
-        version: link:../external-verifier
+        version: link:../assei
       openclaw:
         specifier: '>=2026.4.22'
         version: 2026.4.26

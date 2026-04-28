@@ -19,7 +19,7 @@ register({
 assert.equal(registrations.length, 1);
 const engine = registrations[0].factory({
   observeOnly: true,
-  externalValidation: { enabled: false },
+  assei: { enabled: false },
   memoryOwn: { apiBase: 'http://127.0.0.1:8788', disableHttp: false },
 });
 
@@ -41,7 +41,7 @@ const result = await engine.afterTurn({
 });
 
 assert.equal(result?.phronesis?.queued, true);
-assert.equal(result?.externalValidation?.action, 'disabled');
+assert.equal(result?.assei?.action, 'disabled');
 const names = await fs.readdir(SPOOL_DIR);
 assert.equal(names.length, 1);
 const raw = await fs.readFile(path.join(SPOOL_DIR, names[0]), 'utf8');
